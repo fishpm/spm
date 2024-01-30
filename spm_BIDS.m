@@ -533,13 +533,13 @@ end
 pth = fullfile(subject.path,'pet');
 if exist(pth,'dir')
     f = spm_select('List',pth,...
-        sprintf('^%s.*_task-.*_pet\\.nii(\\.gz)?$',subject.name));
+        sprintf('^%s.*_pet\\.nii(\\.gz)?$',subject.name));
     if isempty(f), f = {}; else f = cellstr(f); end
     for i=1:numel(f)
         
         %-PET imaging file
         %------------------------------------------------------------------
-        p = parse_filename(f{i}, {'sub','ses','task','acq','rec','run'});
+        p = parse_filename(f{i}, {'sub','ses','task','rec','trc','run'});
         subject.pet = [subject.pet p];
         
     end
