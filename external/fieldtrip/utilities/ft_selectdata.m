@@ -34,7 +34,7 @@ function [varargout] = ft_selectdata(cfg, varargin)
 %   cfg.nanmean     = string, can be 'yes' or 'no' (default = 'no')
 %
 % When you average over a dimension, you can choose whether to keep that dimension in
-% the data representation or remove it alltogether.
+% the data representation or remove it altogether.
 %   cfg.keeprptdim     = 'yes' or 'no' (default is automatic)
 %   cfg.keepchandim    = 'yes' or 'no' (default = 'yes')
 %   cfg.keepchancmbdim = 'yes' or 'no' (default = 'yes')
@@ -102,6 +102,7 @@ assert(~ismember(dtype, {'elec', 'grad', 'opto', 'layout'}), 'invalid input data
 % ensure that the user does not give invalid selection options
 cfg = ft_checkconfig(cfg, 'forbidden', {'foi', 'toi'});
 
+cfg = ft_checkconfig(cfg, 'forbidden',  {'channels', 'trial'}); % prevent accidental typos, see issue 1729
 cfg = ft_checkconfig(cfg, 'renamed',    {'selmode',    'select'});
 cfg = ft_checkconfig(cfg, 'renamed',    {'toilim',     'latency'});
 cfg = ft_checkconfig(cfg, 'renamed',    {'foilim',     'frequency'});
@@ -509,7 +510,7 @@ end
 switch selmode
   case 'intersect'
     if iscell(selindx)
-      % there are multiple selections in multipe vectors, the selection is in the matrices contained within the cell-array
+      % there are multiple selections in multiple vectors, the selection is in the matrices contained within the cell-array
       for j=1:numel(selindx)
         if ~isempty(selindx{j}) && all(isnan(selindx{j}))
           % no selection needs to be made
@@ -999,7 +1000,7 @@ elseif numel(cfg.latency)==1
   end
   
 elseif numel(cfg.latency)==2
-  % the [min max] range can be specifed with +inf or -inf, but should
+  % the [min max] range can be specified with +inf or -inf, but should
   % at least partially overlap with the time axis of the input data
   mintime = min(alltimevec);
   maxtime = max(alltimevec);
@@ -1137,7 +1138,7 @@ if isfield(cfg, 'frequency')
     end
     
   elseif numel(cfg.frequency)==2
-    % the [min max] range can be specifed with +inf or -inf, but should
+    % the [min max] range can be specified with +inf or -inf, but should
     % at least partially overlap with the freq axis of the input data
     minfreq = min(freqaxis);
     maxfreq = max(freqaxis);

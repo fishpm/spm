@@ -34,6 +34,7 @@ function hs = ft_plot_sens(sens, varargin)
 %   'orientation'     = true/false, plot a line for the orientation of each optode (default = false)
 %   'optoshape'       = 'point', 'circle', 'square', 'sphere', or 'disc' (default is automatic)
 %   'optosize'        = diameter of the optodes (default is automatic)
+%   'headshape'       = headshape, required for optoshape 'disc'
 %
 % The following options apply when electrodes/coils/optodes are NOT plotted individually
 %   'style'           = plotting style for the points representing the channels, see plot3 (default = [])
@@ -44,16 +45,22 @@ function hs = ft_plot_sens(sens, varargin)
 %   'facealpha'       = transparency, between 0 and 1 (default = 1)
 %   'edgealpha'       = transparency, between 0 and 1 (default = 1)
 %
-% Example
+% The sensor array can include an optional fid field with fiducials, which will also be plotted.
+%   'fidcolor'        = [r g b] values or string, for example 'red', 'r', or an Nx3 or Nx1 array where N is the number of fiducials
+%   'fidmarker'       = ['.', '*', '+',  ...]
+%   'fidlabel'        = ['yes', 'no', 1, 0, 'true', 'false']
+%
+% Example:
 %   sens = ft_read_sens('Subject01.ds', 'senstype', 'meg');
 %   figure; ft_plot_sens(sens, 'coilshape', 'point', 'style', 'r*')
 %   figure; ft_plot_sens(sens, 'coilshape', 'circle')
 %   figure; ft_plot_sens(sens, 'coilshape', 'circle', 'coil', true, 'chantype', 'meggrad')
 %   figure; ft_plot_sens(sens, 'coilshape', 'circle', 'coil', false, 'orientation', true)
 %
-% See also FT_READ_SENS, FT_PLOT_HEADSHAPE, FT_PLOT_HEADMODEL
+% See also FT_DATATYPE_SENS, FT_READ_SENS, FT_PLOT_HEADSHAPE, FT_PLOT_HEADMODEL,
+% FT_PLOT_TOPO3D
 
-% Copyright (C) 2009-2022, Robert Oostenveld, Arjen Stolk
+% Copyright (C) 2009-2023, Robert Oostenveld, Arjen Stolk
 %
 % This file is part of FieldTrip, see http://www.fieldtriptoolbox.org
 % for the documentation and details.
@@ -82,12 +89,16 @@ chantype        = ft_getopt(varargin, 'chantype');
 unit            = ft_getopt(varargin, 'unit');
 axes_           = ft_getopt(varargin, 'axes', false);     % do not confuse with built-in function
 orientation     = ft_getopt(varargin, 'orientation', false);
+fidcolor        = ft_getopt(varargin, 'fidcolor', 'g');
+fidmarker       = ft_getopt(varargin, 'fidmarker', '*');
+fidlabel        = ft_getopt(varargin, 'fidlabel', true);
 % these have to do with the font
 fontcolor       = ft_getopt(varargin, 'fontcolor', 'k');  % default is black
 fontsize        = ft_getopt(varargin, 'fontsize',   get(0, 'defaulttextfontsize'));
 fontname        = ft_getopt(varargin, 'fontname',   get(0, 'defaulttextfontname'));
 fontweight      = ft_getopt(varargin, 'fontweight', get(0, 'defaulttextfontweight'));
 fontunits       = ft_getopt(varargin, 'fontunits',  get(0, 'defaulttextfontunits'));
+headshape       = ft_getopt(varargin, 'headshape', []); % needed for elecshape/optoshape 'disc'
 
 % this is for MEG magnetometer and/or gradiometer arrays
 coil            = ft_getopt(varargin, 'coil', false);
@@ -97,7 +108,6 @@ coilsize        = ft_getopt(varargin, 'coilsize');  % default depends on the inp
 elec            = ft_getopt(varargin, 'elec', false);
 elecshape       = ft_getopt(varargin, 'elecshape'); % default depends on the input, see below
 elecsize        = ft_getopt(varargin, 'elecsize');  % default depends on the input, see below
-headshape       = ft_getopt(varargin, 'headshape', []); % needed for elecshape 'disc'
 % this is for NIRS optode arrays
 opto            = ft_getopt(varargin, 'opto', false);
 optoshape       = ft_getopt(varargin, 'optoshape'); % default depends on the input, see below
@@ -257,6 +267,9 @@ if ~isempty(chantype)
   
 end % selecting channels and coils
 
+% start with empty return values
+hs = [];
+
 % everything is added to the current figure
 holdflag = ishold;
 if ~holdflag
@@ -413,10 +426,12 @@ switch sensshape
       end
       if any(specified)
         % the marker shape is specified in the style option
-        hs = plot3(pos(:,1), pos(:,2), pos(:,3), style, 'MarkerSize', senssize);
+        h = plot3(pos(:,1), pos(:,2), pos(:,3), style, 'MarkerSize', senssize);
+        hs = [hs; h];
       else
         % the marker shape is not specified in the style option, use the marker option instead and assume that the style option represents the color
-        hs = plot3(pos(:,1), pos(:,2), pos(:,3), 'Marker', marker, 'MarkerSize', senssize, 'Color', style, 'Linestyle', 'none');
+        h = plot3(pos(:,1), pos(:,2), pos(:,3), 'Marker', marker, 'MarkerSize', senssize, 'Color', style, 'Linestyle', 'none');
+        hs = [hs; h];
       end
     else
       % the style is not specified, use facecolor for the marker
@@ -515,12 +530,29 @@ if ~isempty(label) && ~any(strcmp(label, {'off', 'no'}))
     x = pos(i,1) + offset * ori(i,1);
     y = pos(i,2) + offset * ori(i,2);
     z = pos(i,3) + offset * ori(i,3);
-    text(x, y, z, str, 'color', fontcolor, 'fontunits', fontunits, 'fontsize', fontsize, 'fontname', fontname, 'fontweight', fontweight, 'horizontalalignment', 'center', 'verticalalignment', 'middle');
+    text(x, y, z, str, 'color', fontcolor, 'fontunits', fontunits, 'fontsize', fontsize, 'fontname', fontname, 'fontweight', fontweight, 'horizontalalignment', 'center', 'verticalalignment', 'middle', 'interpreter', 'none');
   end % for each channel
 end % if label
 
 axis vis3d
 axis equal
+
+if isfield(sens, 'fid') && ~isempty(sens.fid)
+  % plot the fiducials
+  for i=1:size(sens.fid.pos,1)
+    h  = plot3(sens.fid.pos(i,1), sens.fid.pos(i,2), sens.fid.pos(i,3), 'Marker', fidmarker, 'MarkerEdgeColor', fidcolor);
+    hs = [hs; h];
+    if isfield(sens.fid, 'label') && istrue(fidlabel)
+      % the text command does not like int or single position values
+      x = double(sens.fid.pos(i, 1));
+      y = double(sens.fid.pos(i, 2));
+      z = double(sens.fid.pos(i, 3));
+      str = sprintf('%s', sens.fid.label{i});
+      h   = text(x, y, z, str, 'HorizontalAlignment', 'center', 'VerticalAlignment', 'middle', 'Interpreter', 'none');
+      hs  = [hs; h];
+    end
+  end
+end
 
 if istrue(axes_)
   % plot the 3D axes, this depends on the units and coordsys
@@ -539,6 +571,7 @@ end
 if ~nargout
   clear hs
 end
+
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % SUBFUNCTION all optional inputs are passed to ft_plot_mesh

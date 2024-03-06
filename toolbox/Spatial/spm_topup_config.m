@@ -17,8 +17,8 @@ topup.prog = @(job)spm_run_topup('run',job);
 topup.vout = @(job)spm_run_topup('vout',job);
 topup.help = {[...
 'Utility to correct susceptibility distortions in EPI images using ',...
-'the topup algorithm (J.L.R. Andersson, S. Skare, J. Ashburner, 2003. ',...
-'How to correct susceptibility distortions in spin-echo echo-planar ',... 
+'a re-implementation of FSL''s topup (J.L.R. Andersson, S. Skare, J. Ashburner, 2003. ',...
+'How to correct susceptibility distortions in spin-echo echo-planar ',...
 'images: application to diffusion tensor imaging). This implementation ',...
 'requires two EPI images acquired with opposed phase-encode blips in ',...
 'the y-direction (for the moment).']};
@@ -38,8 +38,7 @@ volbup.tag     = 'volbup';
 volbup.name    = 'Blip up volume (.nii)';
 volbup.filter  = 'image';
 volbup.ufilter = '.*';
-volbup.num     = [0 1];
-volbup.val     = {''};
+volbup.num     = [1 inf];
 volbup.help    = {'Select an image with a blip up phase-encoding polarity.'};
 volbup.preview = @(f) spm_image('Display',char(f));
 
@@ -51,8 +50,7 @@ volbdown.tag     = 'volbdown';
 volbdown.name    = 'Blip down volume (.nii)';
 volbdown.filter  = 'image';
 volbdown.ufilter = '.*';
-volbdown.num     = [0 1];
-volbdown.val     = {''};
+volbdown.num     = [1 inf];
 volbdown.help    = {'Select an image with a blip down phase-encoding polarity.'};
 volbdown.preview = @(f) spm_image('Display',char(f));
 
@@ -73,7 +71,7 @@ data.help    = {[....*
 fwhm         = cfg_entry;
 fwhm.tag     = 'fwhm';
 fwhm.name    = 'FWHM';
-fwhm.val     = {[8 4 2 1 0.1]};
+fwhm.val     = {[8 4 2 1 0]};
 fwhm.strtype = 'e';
 fwhm.num     = [1 Inf];
 fwhm.help    = {[...
@@ -86,7 +84,7 @@ fwhm.help    = {[...
 reg         = cfg_entry;
 reg.tag     = 'reg';
 reg.name    = 'Regularisation';
-reg.val     = {[0 10 100]}; % Default values 
+reg.val     = {[0 10 100]}; % Default values
 reg.strtype = 'e';
 reg.num     = [1 3];
 reg.help    = {...
@@ -97,16 +95,16 @@ reg.help    = {...
 '    3. Penalty on the *bending energy*.'};
 
 %--------------------------------------------------------------------------
-% Degree of B-spline  
+% Degree of B-spline
 %--------------------------------------------------------------------------
 rinterp         = cfg_menu;
 rinterp.tag     = 'rinterp';
-rinterp.name        = 'Interpolation';
-rinterp.val     = {[1 1 1]};         % Default values 
+rinterp.name    = 'Interpolation';
 rinterp.help    = {[
 'Degree of B-spline (from 0 to 7) along different dimensions ' ...
 '(see ``spm_diffeo``).']};
 rinterp.labels = {
+                  'Linear              '
                   '2nd Degree B-spline '
                   '3rd Degree B-Spline'
                   '4th Degree B-Spline'
@@ -114,26 +112,27 @@ rinterp.labels = {
                   '6th Degree B-Spline'
                   '7th Degree B-Spline'
 }';
-rinterp.values = {[0 1 0] [1 1 0] [0 0 1] [1 0 1] [0 1 1] [1 1 1]};
+rinterp.values = {1,2,3,4,5,6,7};
+rinterp.val    = {2};
 
 %--------------------------------------------------------------------------
 % prefix VDM Filename Prefix
 % Option for refine topup
 %--------------------------------------------------------------------------
-rt         = cfg_menu;
-rt.tag     = 'rt';
-rt.name    = 'Refine topup';
-rt.val     = {1};
-rt.help    = {
-    'Option to include refine topup after estimating the fields.'
+jac         = cfg_menu;
+jac.tag     = 'jac';
+jac.name    = 'Jacobian scaling';
+jac.val     = {1};
+jac.help    = {
+    'Option to include Jacobian scaling in the registration model.'
     ['It includes in the process the changes of intensities due to' ...
     ' stretching and compression.']
     }';
-rt.labels  = {
+jac.labels  = {
               'Yes'
               'No'
 }';
-rt.values  = {1 0};
+jac.values  = {1 0};
 
 %--------------------------------------------------------------------------
 % prefix VDM Filename Prefix
@@ -148,7 +147,7 @@ prefix.val     = {'vdm5'};
 
 
 %--------------------------------------------------------------------------
-% Save VDM 
+% Save VDM
 %--------------------------------------------------------------------------
 outdir         = cfg_files;
 outdir.name    = 'Output directory';
@@ -162,7 +161,7 @@ outdir.help    = {[...
 'in the specified directory. The deformation field is saved to disk as ',...
 'a vdm file (``vdm5_*.nii``)']};
 
-[cfg,varargout{1}] = deal({data,fwhm,reg,rinterp,rt,prefix,outdir});
+[cfg,varargout{1}] = deal({data,fwhm,reg,rinterp,jac,prefix,outdir});
 
 
 %==========================================================================
@@ -170,11 +169,10 @@ function out = spm_run_topup(cmd, job)
 
 switch lower(cmd)
     case 'run'
-        VDM               = spm_topup(job.data.volbup{1},job.data.volbdown{1}, ...
-                            job.fwhm,job.reg,job.rinterp,job.rt,job.prefix, ...
-                            job.outdir{1});
+        VDM               = spm_topup(job.data,job.fwhm,job.reg,job.rinterp,...
+                           job.jac,job.prefix,job.outdir{1});
         out.vdmfile       = {VDM.dat.fname};
-        
+
     case 'vout'
         out(1)            = cfg_dep;
         out(1).sname      = 'Voxel displacement map';
@@ -182,3 +180,5 @@ switch lower(cmd)
         out(1).tgt_spec   = cfg_findspec({{'filter','image','strtype','e'}});
 
 end
+
+

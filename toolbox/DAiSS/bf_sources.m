@@ -1,10 +1,9 @@
 function out = bf_sources
 % Prepare source locations and lead fields for beamforming
 %__________________________________________________________________________
-% Copyright (C) 2015-2021 Wellcome Trust Centre for Neuroimaging
 
 % Vladimir Litvak
-% $Id: bf_sources.m 8307 2022-08-26 11:00:54Z george $
+% Copyright (C) 2015-2023 Wellcome Centre for Human Neuroimaging
 
 
 out = cfg_exbranch;
@@ -157,7 +156,7 @@ for m = 1:numel(modalities)
         pos = BF.sources.pos;
         
         if isfield(BF.data.(modalities{m}), 'mesh_correction') && ~isempty(BF.data.(modalities{m}).mesh_correction)
-            disp(['Adjusting source points for volume type ' ft_voltype(vol)]);
+            disp(['Adjusting source points for volume type ' ft_headmodeltype(vol)]);
             cfg     = BF.data.(modalities{m}).mesh_correction;
             cfg.vol      = vol;
             cfg.grid.pos = pos;

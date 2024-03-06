@@ -15,19 +15,23 @@ function [hs] = ft_plot_mesh(mesh, varargin)
 %   'facecolor'    = [r g b] values or string, for example 'brain', 'cortex', 'skin', 'black', 'red', 'r', or an Nx3 or Nx1 array where N is the number of faces
 %   'vertexcolor'  = [r g b] values or string, for example 'brain', 'cortex', 'skin', 'black', 'red', 'r', or an Nx3 or Nx1 array where N is the number of vertices
 %   'edgecolor'    = [r g b] values or string, for example 'brain', 'cortex', 'skin', 'black', 'red', 'r'
-%   'faceindex'    = true or false
-%   'vertexindex'  = true or false
+%   'faceindex'    = true or false (default = false)
+%   'vertexindex'  = true or false (default = false)
 %   'facealpha'    = transparency, between 0 and 1 (default = 1)
 %   'edgealpha'    = transparency, between 0 and 1 (default = 1)
 %   'surfaceonly'  = true or false, plot only the outer surface of a hexahedral or tetrahedral mesh (default = false)
 %   'vertexmarker' = character, e.g. '.', 'o' or 'x' (default = '.')
 %   'vertexsize'   = scalar or vector with the size for each vertex (default = 10)
 %   'unit'         = string, convert to the specified geometrical units (default = [])
-%   'axes'          = boolean, whether to plot the axes of the 3D coordinate system (default = false)
-%   'maskstyle',   = 'opacity' or 'colormix', if the latter is specified, opacity masked color values
+%   'axes'         = boolean, whether to plot the axes of the 3D coordinate system (default = false)
+%   'maskstyle'    = 'opacity' or 'colormix', if the latter is specified, opacity masked color values
 %                    are converted (in combination with a background color) to RGB. This bypasses
 %                    openGL functionality, which behaves unpredictably on some platforms (e.g. when
 %                    using software opengl)
+%   'fontsize'     = number, sets the size of the text (default = 10)
+%   'fontunits'    =
+%   'fontname'     =
+%   'fontweight'   =
 %
 % If you don't want the faces, edges or vertices to be plotted, you should specify the color as 'none'.
 %
@@ -44,10 +48,11 @@ function [hs] = ft_plot_mesh(mesh, varargin)
 %   'contourlinestyle'  = string, line specification
 %   'contourlinewidth'  = number
 %
-% See also FT_PLOT_HEADSHAPE, FT_PLOT_HEADMODEL, TRIMESH, PATCH
+% See also FT_PREPARE_MESH, FT_PLOT_SENS, FT_PLOT_HEADSHAPE, FT_PLOT_HEADMODEL,
+% FT_PLOT_DIPOLE, TRIMESH, PATCH
 
 % Copyright (C) 2009, Cristiano Micheli
-% Copyright (C) 2009-2022, Robert Oostenveld
+% Copyright (C) 2009-2023, Robert Oostenveld
 %
 % This file is part of FieldTrip, see http://www.fieldtriptoolbox.org
 % for the documentation and details.
@@ -85,7 +90,6 @@ if numel(mesh)>1
 end
 
 % get the optional input arguments
-vertexcolor  = ft_getopt(varargin, 'vertexcolor');
 if isfield(mesh, 'tri') && size(mesh.tri,1)>10000
   facecolor    = ft_getopt(varargin, 'facecolor',   'cortex_light');
   edgecolor    = ft_getopt(varargin, 'edgecolor',   'none');
@@ -93,24 +97,33 @@ else
   facecolor    = ft_getopt(varargin, 'facecolor',   'white');
   edgecolor    = ft_getopt(varargin, 'edgecolor',   'k');
 end
-faceindex     = ft_getopt(varargin, 'faceindex',   false);
-vertexindex   = ft_getopt(varargin, 'vertexindex', false);
-vertexsize    = ft_getopt(varargin, 'vertexsize',  10);
-vertexmarker  = ft_getopt(varargin, 'vertexmarker', '.');
-facealpha     = ft_getopt(varargin, 'facealpha',   1);
-edgealpha     = ft_getopt(varargin, 'edgealpha',   1);
-edgelinewidth = ft_getopt(varargin, 'edgelinewidth', .5);
-material_     = ft_getopt(varargin, 'material');        % note the underscore, there is also a material function
-tag           = ft_getopt(varargin, 'tag',         '');
-surfaceonly   = ft_getopt(varargin, 'surfaceonly');     % default is handled below
+vertexcolor   = ft_getopt(varargin, 'vertexcolor');
+vertexindex   = ft_getopt(varargin, 'vertexindex',   false);
+vertexsize    = ft_getopt(varargin, 'vertexsize',    10);
+vertexmarker  = ft_getopt(varargin, 'vertexmarker',  '.');
+faceindex     = ft_getopt(varargin, 'faceindex',     false);
+facealpha     = ft_getopt(varargin, 'facealpha',     1);
+edgealpha     = ft_getopt(varargin, 'edgealpha',     1);
+edgelinewidth = ft_getopt(varargin, 'edgelinewidth', 0.5);
+material_     = ft_getopt(varargin, 'material');         % note the underscore, there is also a material function
+tag           = ft_getopt(varargin, 'tag',           '');
+surfaceonly   = ft_getopt(varargin, 'surfaceonly');      % default is handled below
 unit          = ft_getopt(varargin, 'unit');
-axes_         = ft_getopt(varargin, 'axes', false);     % do not confuse with built-in function
-clim          = ft_getopt(varargin, 'clim');
+axes_         = ft_getopt(varargin, 'axes',      false); % do not confuse with built-in function
 alphalim      = ft_getopt(varargin, 'alphalim');
-alphamapping  = ft_getopt(varargin, 'alphamap', 'rampup');
-cmap          = ft_getopt(varargin, 'colormap');
+alphamapping  = ft_getopt(varargin, 'alphamap',  'rampup');
 maskstyle     = ft_getopt(varargin, 'maskstyle', 'opacity');
-contour       = ft_getopt(varargin, 'contour',   []);
+cmap          = ft_getopt(varargin, 'colormap');
+clim          = ft_getopt(varargin, 'clim');
+contour       = ft_getopt(varargin, 'contour');
+insideonly    = ft_getopt(varargin, 'insideonly', false);
+
+% these have to do with the font
+fontcolor       = ft_getopt(varargin, 'fontcolor', 'k');  % default is black
+fontsize        = ft_getopt(varargin, 'fontsize',   get(0, 'defaulttextfontsize'));
+fontname        = ft_getopt(varargin, 'fontname',   get(0, 'defaulttextfontname'));
+fontweight      = ft_getopt(varargin, 'fontweight', get(0, 'defaulttextfontweight'));
+fontunits       = ft_getopt(varargin, 'fontunits',  get(0, 'defaulttextfontunits'));
 
 contourcolor      = ft_getopt(varargin, 'contourcolor',     'k');
 contourlinewidth  = ft_getopt(varargin, 'contourlinewidth', 3);
@@ -123,14 +136,20 @@ hastet   = isfield(mesh, 'tet');   % tetraheders as a Mx4 matrix with vertex ind
 hashex   = isfield(mesh, 'hex');   % hexaheders  as a Mx8 matrix with vertex indices
 hasline  = isfield(mesh, 'line');  % lines       as a Mx2 matrix with vertex indices
 haspoly  = isfield(mesh, 'poly');  % polygons    as a MxP matrix with vertex indices
+hasinside = isfield(mesh, 'inside'); 
 
 if ~isempty(unit)
   mesh = ft_convert_units(mesh, unit);
 end
 
-if hastri+hastet+hashex+hasline+haspoly>1
-  % the code further down cannot deal with simultaneous triangles, tetraheders and/or hexaheders
-  % therefore we plot them one by one
+if hastri+hastet+hashex+hasline+haspoly==1
+  if hasinside && istrue(insideonly)
+    % overrule inconsistent user setting
+    ft_warning('overruling insideonly setting, don''t know how to deal with this in the presence of mesh faces');
+    insideonly = false;
+  end
+elseif hastri+hastet+hashex+hasline+haspoly>1
+  % the code further down cannot deal with simultaneous triangles, tetraheders and/or hexaheders therefore we plot them one by one
   if hastri
     ft_plot_mesh(removefields(mesh, {'tet', 'hex', 'line', 'poly'}), varargin{:});
   end
@@ -147,6 +166,9 @@ if hastri+hastet+hashex+hasline+haspoly>1
     ft_plot_mesh(removefields(mesh, {'tri', 'tet', 'hex', 'line'}), varargin{:});
   end
   return
+elseif hastri+hastet+hashex+hasline+haspoly==0
+  % this is a situation where there are only vertices to plot, and it's safe to apply the inside vector if requested
+  insideonly = istrue(insideonly);
 end
 
 if isempty(surfaceonly)
@@ -228,15 +250,12 @@ elseif ischar(edgecolor) && ismember(edgecolor, htmlcolors)
   edgecolor = htmlcolors(edgecolor);
 end
 
-% everything is added to the current figure
-holdflag = ishold;
-if ~holdflag
-  hold on
-end
-
 if isfield(mesh, 'pos')
   % this is assumed to reflect 3-D vertices
   pos = mesh.pos;
+  if insideonly
+    pos = pos(mesh.inside,:);
+  end
 elseif isfield(mesh, 'prj')
   % this happens sometimes if the 3-D vertices are projected to a 2-D plane
   pos = mesh.prj;
@@ -284,6 +303,12 @@ if hasline
   line = mesh.line;
 else
   line = [];
+end
+
+% everything is added to the current figure
+holdflag = ishold;
+if ~holdflag
+  hold on
 end
 
 if haspos
@@ -527,9 +552,9 @@ if vertexindex
   for node_indx=1:size(pos,1)
     str = sprintf('%d', node_indx);
     if size(pos, 2)==2
-      h = text(pos(node_indx, 1), pos(node_indx, 2), str, 'HorizontalAlignment', 'center', 'VerticalAlignment', 'middle');
+      h = text(pos(node_indx, 1), pos(node_indx, 2), str, 'HorizontalAlignment', 'center', 'VerticalAlignment', 'middle', 'color', fontcolor, 'fontunits', fontunits, 'fontsize', fontsize, 'fontname', fontname, 'fontweight', fontweight);
     else
-      h = text(pos(node_indx, 1), pos(node_indx, 2), pos(node_indx, 3), str, 'HorizontalAlignment', 'center', 'VerticalAlignment', 'middle');
+      h = text(pos(node_indx, 1), pos(node_indx, 2), pos(node_indx, 3), str, 'HorizontalAlignment', 'center', 'VerticalAlignment', 'middle', 'color', fontcolor, 'fontunits', fontunits, 'fontsize', fontsize, 'fontname', fontname, 'fontweight', fontweight);
     end
     hs = [hs; h];
   end
